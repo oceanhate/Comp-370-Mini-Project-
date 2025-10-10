@@ -56,7 +56,6 @@ public class Main {
                         backupServer2.stop();
                         System.out.println("All servers stopped.");
                     }
-
                     case "reboot" -> {
                         System.out.println("Rebooting all servers...");
                         primaryServer.stop();

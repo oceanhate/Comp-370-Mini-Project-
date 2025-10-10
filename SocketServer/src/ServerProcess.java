@@ -17,13 +17,14 @@ public abstract class ServerProcess {
     protected volatile boolean isPrimary = false;
     protected volatile boolean running = true;
     // Unique identifier for this server (provided via constructor)
-    protected final String serverId;
+    protected volatile String currentServerID;
     private ServerSocket serverSocket;
     private Thread serverListenThread;
+    private Thread heartbeatThread;
     private final Set<Socket> activeClients = Collections.synchronizedSet(new HashSet<>());
     // New constructor that accepts a server ID
     protected ServerProcess(String serverId) {
-        this.serverId = (serverId == null ? "SERVER-UNKNOWN" : serverId);
+        this.currentServerID = (serverId == null ? "SERVER UNKNOWN" : serverId);
     }
 
     /**
@@ -34,9 +35,10 @@ public abstract class ServerProcess {
         this.serverListenThread = new Thread(() -> runServer(port));
         this.serverListenThread.start();
         // Start heartbeat sender as a daemon thread so this server notifies the Monitor
-        Thread hb = new Thread(this::sendHeartbeats, "heartbeat-sender");
-        hb.setDaemon(true);
-        hb.start();
+        this.heartbeatThread = new Thread(this::sendHeartbeats, "heartbeat-sender");
+        this.heartbeatThread.setDaemon(true);
+        this.heartbeatThread.start();
+
     }
 
     // The main server loop: accepts clients and starts a handler thread for each
@@ -97,8 +99,10 @@ public abstract class ServerProcess {
         try (Socket socket = new Socket("localhost", 9000); // Connect to monitor
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
+            long timeStamp = System.currentTimeMillis();
+
             // Send the standard heartbeat format the Monitor expects
-            out.println(serverId);
+            out.println(currentServerID + "|" + timeStamp );
 
         } catch (IOException e) {
             System.out.println("Failed to send heartbeat");
@@ -116,18 +120,40 @@ public abstract class ServerProcess {
      * Stops the server process gracefully.
      */
     public void stop() {
-        running = false;
+
+        System.out.println(currentServerID + "shutting down");
+        //close listener socket
+        this.running = false;
         if (serverSocket != null && !serverSocket.isClosed()) {
             try { serverSocket.close(); } catch (IOException ignored) {}
         }
+
+        //interupt threads
         if(serverListenThread != null) {
             serverListenThread.interrupt();
         }
+
+        if (this.heartbeatThread != null) {
+            this.heartbeatThread.interrupt();
+        }
+
+        //wait for threads to exit
+        try{
+            if(heartbeatThread != null) {
+                heartbeatThread.join(1000);
+            }
+            if(serverListenThread != null) {
+                serverListenThread.join(1000);}
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        //close client connections
         for(Socket client : activeClients) {
             try {
                 client.close();
             } catch (IOException e) {}
         }
         activeClients.clear();
+        System.out.println(this.currentServerID + "stopped");
     }
 }

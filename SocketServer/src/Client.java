@@ -3,12 +3,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Scanner;
 
 public class Client {
     private static final String HOST = "localhost";
     // Define all known server ports
-    private static final int[] SERVER_PORTS = {8090, 8089, 8088};
+    private static final List<Integer> SERVER_PORTS_LIST = new java.util.ArrayList<>(Arrays.asList(8090, 8089, 8088));
     private static final int RECONNECT_INTERVAL = 5000; // 5 seconds
 
     /**
@@ -17,13 +20,15 @@ public class Client {
      * @param args Command line arguments (not used).
      */
     public static void main(String[] args) {
+        SERVER_PORTS_LIST.sort(Comparator.reverseOrder());
+
         Scanner consoleInput = new Scanner(System.in);
 
         while (true) {
             boolean connected = false;
 
             // Iterate through all known ports to find an active server
-            for (int port : SERVER_PORTS) {
+            for (int port : SERVER_PORTS_LIST) {
                 try {
                     System.out.println("Attempting connection to server on port: " + port);
                     // Attempt connection on the current port
@@ -34,6 +39,12 @@ public class Client {
                 } catch (IOException e) {
                     // Connection failed on this specific port, try the next one
                     System.out.println("Connection failed on port " + port + ". Trying next port...");
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException e1) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
 
@@ -69,13 +80,19 @@ public class Client {
             Thread readerThread = new Thread(() -> {
                 try {
                     String serverMessage;
-                    while ((serverMessage = in.readLine()) != null) {
-                        System.out.println("server said: " + serverMessage);
+                    // Check if interrupted before reading
+                    while (!Thread.currentThread().isInterrupted() && (serverMessage = in.readLine()) != null) {
+                        System.out.println("from server: " + serverMessage);
                     }
                 } catch (IOException e) {
-                    // This is expected when the server closes the connection
-                    System.out.println("Server disconnected from reader thread.");
+                    // This is expected when the socket is closed by the server or by the main thread (during 'exit')
+                    // Only print if the thread was not interrupted (i.e., server initiated the close)
+                    if (!Thread.currentThread().isInterrupted()) {
+                        System.out.println("Server connection lost.");
+                    }
                 }
+                // Confirmation that the reader thread has finished its work
+                System.out.println("Reader thread finished.");
             });
 
             readerThread.setDaemon(true);
@@ -90,8 +107,11 @@ public class Client {
                 String message = consoleInput.nextLine();
 
                 if (message.equalsIgnoreCase("exit")) {
-                    System.out.println("Client disconnected by user.");
-                    System.exit(0);
+                    System.out.println("Client disconnecting by user.");
+
+                    // 1. Send interrupt signal to the reader thread
+                    readerThread.interrupt();
+                    break; // Exit the user input loop
                 }
 
                 out.println(message);
@@ -104,6 +124,14 @@ public class Client {
                     throw new IOException("Connection lost during send operation.");
                 }
             }
-        }
+
+            // 2. WAIT FOR READER THREAD TO JOIN/EXIT GRACEFULLY
+            // This is correctly placed after the 'while(true)' loop finishes (by 'break')
+            try  {
+                readerThread.join(100); // Wait a short time for thread to complete
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt(); // Restore interrupt status
+            }
+        } // The try-with-resources block automatically closes the socket here.
     }
 }

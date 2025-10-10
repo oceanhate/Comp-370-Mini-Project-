@@ -14,6 +14,7 @@ public class backup extends ServerProcess {
         // This is the difference - backup needs to do something when promoted
         System.out.println("*** I WAS BACKUP, NOW I'M PRIMARY! ***");
         // Later you'll add: sync state, notify others, etc.
+        this.currentServerID = "PRIMARY-1";
     }
 
 }
