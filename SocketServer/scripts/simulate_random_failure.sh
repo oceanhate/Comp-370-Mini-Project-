@@ -6,7 +6,7 @@ SERVERS=("HeartBeatServer_1" "HeartBeatServer_2" "HeartBeatServer_3")
 # Pick one at random
 RANDOM_SERVER=${SERVERS[$RANDOM % ${#SERVERS[@]}]}
 
-PID=$(pgrep -f "$RANDOM_SERVER")
+PID=$(ps -ef | grep "$RANDOM_SERVER" | grep -v grep | awk '{print $2}')
 if [ -n "$PID" ]; then
   kill "$PID"
   echo " Random failure simulated: $RANDOM_SERVER stopped (PID: $PID)"

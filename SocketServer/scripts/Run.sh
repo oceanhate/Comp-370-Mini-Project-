@@ -3,34 +3,33 @@
 # Author: Mehul Singla
 # Project: Comp-370 Mini Project
 
-SRC_DIR="Comp-370-Mini-Project-/Heartbeat Servers and Monitor/src"
+SRC_DIR="C:\Users\ABC\Desktop\COMP_370\Comp-370-Mini-Project-\SocketServer\src"
 OUT_DIR="out"
 
-# Step 1: Compile all source files
-echo " Compiling Java source files..."
+echo "Compiling Java source files..."
 mkdir -p "$OUT_DIR"
-javac -d "$OUT_DIR" "$SRC_DIR"/*.java
+javac -d "$OUT_DIR" $(find "$SRC_DIR" -name "*.java")
 
 if [ $? -ne 0 ]; then
-  echo " Compilation failed. Please fix errors above."
+  echo "Compilation failed. Please fix errors above."
   exit 1
 fi
-echo " Compilation successful."
+echo "Compilation successful."
 
-# Step 2: Run Heartbeat servers in background
-echo " Starting Heartbeat servers..."
-java -cp "$OUT_DIR" HeartBeatServer_1 &
+echo "Starting Heartbeat servers..."
+java -cp "$OUT_DIR" "C:\Users\ABC\Desktop\COMP_370\Comp-370-Mini-Project-\Heartbeat Servers and Monitor\src\HeartBeatServer_1.java" &
 SERVER1_PID=$!
-java -cp "$OUT_DIR" HeartBeatServer_2 &
+java -cp "$OUT_DIR" "C:\Users\ABC\Desktop\COMP_370\Comp-370-Mini-Project-\Heartbeat Servers and Monitor\src\HeartBeatServer_2.java" &
 SERVER2_PID=$!
-java -cp "$OUT_DIR" HeartBeatServer_3 &
+java -cp "$OUT_DIR" "C:\Users\ABC\Desktop\COMP_370\Comp-370-Mini-Project-\Heartbeat Servers and Monitor\src\HeartBeatServer_3.java" &
 SERVER3_PID=$!
-sleep 2
 
-echo " Servers started (PIDs: $SERVER1_PID, $SERVER2_PID, $SERVER3_PID)"
 
-# Step 3: Start Heartbeat Monitor
-echo " Starting Heartbeat Monitor..."
-java -cp "$OUT_DIR" HeartBeatMonitor
+trap "kill $SERVER1_PID $SERVER2_PID $SERVER3_PID" EXIT
 
+sleep 3
+echo "Servers started (PIDs: $SERVER1_PID, $SERVER2_PID, $SERVER3_PID)"
+
+echo "Starting Heartbeat Monitor..."
+java -cp "$OUT_DIR" "C:\Users\ABC\Desktop\COMP_370\Comp-370-Mini-Project-\Heartbeat Servers and Monitor\src\HeartBeatMonitor.java"
 

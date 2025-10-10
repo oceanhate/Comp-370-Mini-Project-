@@ -1,10 +1,12 @@
 #!/bin/bash
-# kill_all_servers.sh — Stop all HeartBeat servers
+# kill_all_servers.sh — Works on Windows (Git Bash)
 
-PIDS=$(pgrep -f "HeartBeatServer_")
+PIDS=$(ps -ef | grep "HeartBeatServer_" | grep -v grep | awk '{print $2}')
+
 if [ -n "$PIDS" ]; then
+  echo " Stopping all HeartBeat servers..."
   kill $PIDS
-  echo " All HeartBeat servers stopped (PIDs: $PIDS)"
+  echo " All servers stopped (PIDs: $PIDS)"
 else
   echo "  No HeartBeat servers are running."
 fi

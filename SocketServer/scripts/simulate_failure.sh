@@ -7,7 +7,7 @@ echo " Simulating server failure..."
 SERVERS=("HeartBeatServer_1" "HeartBeatServer_2")
 
 for SERVER in "${SERVERS[@]}"; do
-  PID=$(pgrep -f "$SERVER")
+ PID=$(ps -ef | grep "$SERVER" | grep -v grep | awk '{print $2}')
   if [ -n "$PID" ]; then
     kill "$PID"
     echo "$SERVER stopped (PID: $PID)"
