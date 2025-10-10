@@ -5,7 +5,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Scanner;
 
-public class Client {
+public class  Client {
     private static final String HOST = "localhost";
     // Define all known server ports
     private static final int[] SERVER_PORTS = {8090, 8089, 8088};

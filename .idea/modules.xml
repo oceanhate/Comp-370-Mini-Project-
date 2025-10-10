@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/Comp-370-Mini-Project-.iml" filepath="$PROJECT_DIR$/.idea/Comp-370-Mini-Project-.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Heartbeat Servers and Monitor/Heartbeat Servers and Monitor.iml" filepath="$PROJECT_DIR$/Heartbeat Servers and Monitor/Heartbeat Servers and Monitor.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Main Project File/Main Project File.iml" filepath="$PROJECT_DIR$/Main Project File/Main Project File.iml" />
+      <module fileurl="file://$PROJECT_DIR$/SocketServer/SocketServer.iml" filepath="$PROJECT_DIR$/SocketServer/SocketServer.iml" />
+    </modules>
+  </component>
+</project>
