@@ -55,7 +55,25 @@ uses a funciton called rundeathchecker, that ensures proper promotion logic, and
 Client: 
 
 Sends messages to primary server
-Switchces ports upon receiving notificaion from monitor 
+
+Scripts:
+All the file paths are absolute paths and you have to change them before running the scripts according to your PC. 
+Script Files:
+Run.sh: to run the servers and monitor.
+kill_server1.sh: To kill server 1 or primary server.
+kill_server2.sh: To kill server 2 or backup server 1.
+kill_server3.sh: To kill server 3 or backup server 2.
+kill_server_all.sh: To kill all the servers running.
+simulate_chain_failure.sh: Kills server sequentially to simulate cascading failures.
+simulate_failure.sh: To simulate one or more server failures.
+simulate_random_failure.sh: To simulate failure of server on random.
+
+To run the scripts in IntelliJ IDEA:- 
+Go to Terminal> Clik on arrow and select Git Bash.
+You will need two Git Bash running, in one you will run the project and in second, you will run other scripts.
+
+Switchces ports upon receiving notificaion from monitor
+
 
 
 Main: 
