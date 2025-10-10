@@ -8,28 +8,30 @@ public class Main {
     public static final int PRIMARY_PORT = 8090;
     public static final int BACKUP_PORT = 8089;
     public static final int BACKUP_PORT2 = 8088;
+
     /**
      * The main method creates and starts the primary and backup servers, each in its own thread.
-     * It also starts the monitor to watch over the primary server.
      * @param args Command line arguments (not used).
      */
     public static void main(String[] args) {
-        var primaryServer = new primary();
-        var backupServer = new backup();
-        var backupServer2 = new backup2();
+        // --- 1. CONSTRUCTOR ALIGNMENT ---
+        // Pass the port number to the server constructor so the server knows its own port.
+        var primaryServer = new primary(PRIMARY_PORT);
+        var backupServer = new backup(BACKUP_PORT);
+        var backupServer2 = new backup2(BACKUP_PORT2);
 
         // Announce that the servers are about to start.
         System.out.println("Server processes starting...");
 
-        // Start the primary server. The process() method handles its own threading.
-        primaryServer.process(PRIMARY_PORT);
+        // --- 2. PROCESS CALL ALIGNMENT ---
+        // The process() method no longer needs the port argument, as it uses the port stored in the constructor.
+        primaryServer.process();
         System.out.println("Primary server started on port " + PRIMARY_PORT);
 
-        // Start the backup server. The process() method handles its own threading.
-        backupServer.process(BACKUP_PORT);
+        backupServer.process();
         System.out.println("Backup server started on port " + BACKUP_PORT);
 
-        backupServer2.process(BACKUP_PORT2);
+        backupServer2.process();
         System.out.println("Backup server 2 started on port " + BACKUP_PORT2);
 
         try (Scanner scanner = new Scanner(System.in)) {
@@ -41,7 +43,7 @@ public class Main {
                     case "stop primary" -> {
                         primaryServer.stop();
                         System.out.println("Primary server stopped");
-                    }//comands to stop the server
+                    }
                     case "stop backup1" -> {
                         backupServer.stop();
                         System.out.println("Backup server1 stopped");
@@ -56,7 +58,6 @@ public class Main {
                         backupServer2.stop();
                         System.out.println("All servers stopped.");
                     }
-
                     case "reboot" -> {
                         System.out.println("Rebooting all servers...");
                         primaryServer.stop();
@@ -66,13 +67,15 @@ public class Main {
                         // Give time for sockets to close
                         try { Thread.sleep(100); } catch (InterruptedException ignored) {}
 
-                        primaryServer = new primary();
-                        backupServer = new backup();
-                        backupServer2 = new backup2();
+                        // Re-initialize with correct ports
+                        primaryServer = new primary(PRIMARY_PORT);
+                        backupServer = new backup(BACKUP_PORT);
+                        backupServer2 = new backup2(BACKUP_PORT2);
 
-                        primaryServer.process(PRIMARY_PORT);
-                        backupServer.process(BACKUP_PORT);
-                        backupServer2.process(BACKUP_PORT2);
+                        // Call process() without arguments
+                        primaryServer.process();
+                        backupServer.process();
+                        backupServer2.process();
                         System.out.println("All servers rebooted successfully.");
                     }
 
@@ -87,7 +90,5 @@ public class Main {
                 }
             }
         }
-
-
     }
 }
