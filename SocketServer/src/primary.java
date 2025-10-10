@@ -3,17 +3,21 @@
  * Starts as primary and handles client requests.
  */
 public class primary extends ServerProcess {
-
-    public primary() {
-        // Correct Java syntax: call the superclass constructor with the server ID
-        super("PRIMARY-1");
-        this.isPrimary = true; // Starts as primary
+    public primary(int port) {
+        super(port);
+        this.isPrimary = true;
     }
 
     @Override
     protected void onPromotedToPrimary() {
-        // Already primary, do nothing
-        System.out.println("I'm already the primary server");
+        // Log the change, even if it's the default primary, for clarity
+        System.out.println("I am Port " + this.serverPort + ". Confirmed as PRIMARY.");
     }
 
+    // You will need a main method to run this instance (example below)
+    /*
+    public static void main(String[] args) {
+        new primary().process();
+    }
+    */
 }

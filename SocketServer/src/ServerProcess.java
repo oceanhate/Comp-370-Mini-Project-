@@ -16,27 +16,33 @@ import java.util.Set;
 public abstract class ServerProcess {
     protected volatile boolean isPrimary = false;
     protected volatile boolean running = true;
-    // Unique identifier for this server (provided via constructor)
-    protected final String serverId;
+
+    // --- MODIFIED FIELD ---
+    // The port number this server instance is running on
+    protected final int serverPort;
+
     private ServerSocket serverSocket;
     private Thread serverListenThread;
+    private Thread heartbeatThread;
     private final Set<Socket> activeClients = Collections.synchronizedSet(new HashSet<>());
-    // New constructor that accepts a server ID
-    protected ServerProcess(String serverId) {
-        this.serverId = (serverId == null ? "SERVER-UNKNOWN" : serverId);
+
+    // --- MODIFIED CONSTRUCTOR ---
+    // The constructor now accepts the server's port number
+    protected ServerProcess(int port) {
+        this.serverPort = port;
     }
 
     /**
      * Starts the server, accepts multiple clients, and handles each in a separate thread.
-     * @param port The port number for the server to listen on.
      */
-    public void process(int port) {
-        this.serverListenThread = new Thread(() -> runServer(port));
+    public void process() { // Removed 'port' argument as it's now in the constructor
+        this.serverListenThread = new Thread(() -> runServer(this.serverPort)); // Use field
         this.serverListenThread.start();
-        // Start heartbeat sender as a daemon thread so this server notifies the Monitor
-        Thread hb = new Thread(this::sendHeartbeats, "heartbeat-sender");
-        hb.setDaemon(true);
-        hb.start();
+
+        // Start heartbeat sender as a daemon thread
+        this.heartbeatThread = new Thread(this::sendHeartbeats, "heartbeat-sender");
+        this.heartbeatThread.setDaemon(true);
+        this.heartbeatThread.start();
     }
 
     // The main server loop: accepts clients and starts a handler thread for each
@@ -44,6 +50,7 @@ public abstract class ServerProcess {
         try {
             serverSocket = new ServerSocket(port);
             System.out.println("Server started on port: " + port);
+            // ... (rest of runServer logic remains the same) ...
             while (running) {
                 var client = serverSocket.accept();
                 activeClients.add(client);
@@ -65,13 +72,15 @@ public abstract class ServerProcess {
             while ((line = clientInput.readLine()) != null) {
                 if ("PROMOTE".equals(line)) {
                     isPrimary = true;
+                    // Log the promotion success
+                    System.out.println("--- RECEIVED PROMOTE COMMAND ---");
                     onPromotedToPrimary(); // Hook for subclasses
                     clientOutput.println("PROMOTED");
                 } else if (isPrimary) {
-                    System.out.println("Client says: " + line);
+                    System.out.println("[Primary:" + serverPort + "] Client says: " + line);
                     clientOutput.println("Message Received");
                 } else {
-                    clientOutput.println("NOT PRIMARY");
+                    clientOutput.println("NOT PRIMARY (Currently Port: " + serverPort + ")");
                 }
             }
         } catch (IOException e) {
@@ -80,7 +89,8 @@ public abstract class ServerProcess {
             activeClients.remove(client);
         }
     }
-    // Run;s forever, sending heartbeats
+
+    // Runs forever, sending heartbeats
     private void sendHeartbeats() {
         while (running) {
             try {
@@ -92,16 +102,22 @@ public abstract class ServerProcess {
         }
     }
 
-    // Send one heartbeat message
+    // --- MODIFIED METHOD ---
+    // Send one heartbeat message using the server's port number
     private void sendHeartbeat() {
-        try (Socket socket = new Socket("localhost", 9000); // Connect to monitor
+        try (Socket socket = new Socket("localhost", 9000); // Connect to monitor heartbeat port
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
-            // Send the standard heartbeat format the Monitor expects
-            out.println(serverId);
+            long timeStamp = System.currentTimeMillis();
+
+            // Send the required format: [Port #] | [timestamp]
+            out.println(this.serverPort + "|" + timeStamp );
 
         } catch (IOException e) {
-            System.out.println("Failed to send heartbeat");
+            // Suppress continuous failure logs, only show if the server itself is running.
+            if (running) {
+                System.out.println("Failed to send heartbeat from port " + this.serverPort);
+            }
         }
     }
 
@@ -116,18 +132,40 @@ public abstract class ServerProcess {
      * Stops the server process gracefully.
      */
     public void stop() {
-        running = false;
+
+        System.out.println("Server on port " + this.serverPort + " shutting down");
+        //close listener socket
+        this.running = false;
         if (serverSocket != null && !serverSocket.isClosed()) {
             try { serverSocket.close(); } catch (IOException ignored) {}
         }
+
+        //interupt threads
         if(serverListenThread != null) {
             serverListenThread.interrupt();
         }
+
+        if (this.heartbeatThread != null) {
+            this.heartbeatThread.interrupt();
+        }
+
+        //wait for threads to exit
+        try{
+            if(heartbeatThread != null) {
+                heartbeatThread.join(1000);
+            }
+            if(serverListenThread != null) {
+                serverListenThread.join(1000);}
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        //close client connections
         for(Socket client : activeClients) {
             try {
                 client.close();
             } catch (IOException e) {}
         }
         activeClients.clear();
+        System.out.println("Server on port " + this.serverPort + " stopped");
     }
 }
