@@ -399,8 +399,6 @@ _Failover behavior when primary server is killed_
 ![Simultaneous Failures](photos/kill_primary_and_backup.png)
 _System behavior when primary and backup are killed simultaneously_
 
-### Scenario 5: Network Delay Simulation
-
 ### Scenario 6: Recovery
 
 **Steps:**
