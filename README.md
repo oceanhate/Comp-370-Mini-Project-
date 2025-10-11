@@ -125,6 +125,9 @@ This will:
 3. Start 3 Server instances in separate Terminal windows
 4. Start Client in a new Terminal window
 
+![All Servers Running](photos/allservers_running.png)
+*System running with all servers active*
+
 ### Step 3: Test the System
 
 ```bash
@@ -137,8 +140,6 @@ This will:
 # Test backup crash scenario
 ./kill-backup.sh
 
-# Run all test scenarios interactively
-./test-all-scenarios.sh
 ```
 
 ### Step 4: Stop the System
@@ -362,6 +363,9 @@ When a failed server is restarted, it **always rejoins as a backup server**, reg
 - ✓ Clients automatically reconnect
 - ✓ No request loss after reconnection
 
+![Primary Killed](photos/kill_primary.png)
+*Failover behavior when primary server is killed*
+
 ### Scenario 3: Backup Crash
 
 **Steps:**
@@ -391,6 +395,9 @@ When a failed server is restarted, it **always rejoins as a backup server**, reg
 - ✓ Remaining server promoted to primary
 - ✓ System continues if ≥1 server alive
 - ✓ Graceful degradation documented
+
+![Simultaneous Failures](photos/kill_primary_and_backup.png)
+*System behavior when primary and backup are killed simultaneously*
 
 ### Scenario 5: Network Delay Simulation
 
