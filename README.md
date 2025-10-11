@@ -126,7 +126,7 @@ This will:
 4. Start Client in a new Terminal window
 
 ![All Servers Running](photos/allservers_running.png)
-*System running with all servers active*
+_System running with all servers active_
 
 ### Step 3: Test the System
 
@@ -364,7 +364,7 @@ When a failed server is restarted, it **always rejoins as a backup server**, reg
 - ✓ No request loss after reconnection
 
 ![Primary Killed](photos/kill_primary.png)
-*Failover behavior when primary server is killed*
+_Failover behavior when primary server is killed_
 
 ### Scenario 3: Backup Crash
 
@@ -397,7 +397,7 @@ When a failed server is restarted, it **always rejoins as a backup server**, reg
 - ✓ Graceful degradation documented
 
 ![Simultaneous Failures](photos/kill_primary_and_backup.png)
-*System behavior when primary and backup are killed simultaneously*
+_System behavior when primary and backup are killed simultaneously_
 
 ### Scenario 5: Network Delay Simulation
 
