@@ -15,10 +15,12 @@ public class backup extends ServerProcess {
         // DO NOT change the port or ID; the Monitor tracks its status change
     }
 
-    // You will need a main method to run this instance (example below)
-    /*
     public static void main(String[] args) {
-        new backup2().process();
+        if (args.length < 1) {
+            System.err.println("Usage: java backup <port>");
+            System.exit(1);
+        }
+        int port = Integer.parseInt(args[0]);
+        new backup(port).process();
     }
-    */
 }

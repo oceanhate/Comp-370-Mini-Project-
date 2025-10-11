@@ -14,10 +14,12 @@ public class primary extends ServerProcess {
         System.out.println("I am Port " + this.serverPort + ". Confirmed as PRIMARY.");
     }
 
-    // You will need a main method to run this instance (example below)
-    /*
     public static void main(String[] args) {
-        new primary().process();
+        if (args.length < 1) {
+            System.err.println("Usage: java primary <port>");
+            System.exit(1);
+        }
+        int port = Integer.parseInt(args[0]);
+        new primary(port).process();
     }
-    */
 }

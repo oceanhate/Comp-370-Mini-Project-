@@ -20,6 +20,10 @@ public abstract class ServerProcess {
     // --- MODIFIED FIELD ---
     // The port number this server instance is running on
     protected final int serverPort;
+    
+    // --- STATE REPLICATION ---
+    // Message counter: tracks total messages processed (replicated to backups)
+    protected volatile int messageCount = 0;
 
     private ServerSocket serverSocket;
     private Thread serverListenThread;
@@ -76,8 +80,25 @@ public abstract class ServerProcess {
                     System.out.println("--- RECEIVED PROMOTE COMMAND ---");
                     onPromotedToPrimary(); // Hook for subclasses
                     clientOutput.println("PROMOTED");
+                } else if (line.startsWith("STATE_UPDATE:")) {
+                    // Backup receiving state update from primary
+                    try {
+                        String[] parts = line.split(":");
+                        if (parts.length == 2) {
+                            messageCount = Integer.parseInt(parts[1]);
+                            System.out.println("[Backup:" + serverPort + "] State synced. Message count: " + messageCount);
+                        }
+                    } catch (NumberFormatException e) {
+                        System.err.println("Invalid state update format");
+                    }
                 } else if (isPrimary) {
-                    System.out.println("[Primary:" + serverPort + "] Client says: " + line);
+                    // Primary processing client message
+                    messageCount++; // Increment state
+                    System.out.println("[Primary:" + serverPort + "] Client says: " + line + " (Total messages: " + messageCount + ")");
+                    
+                    // Replicate state to all backup servers
+                    replicateStateToBackups();
+                    
                     clientOutput.println("Message Received");
                 } else {
                     clientOutput.println("NOT PRIMARY (Currently Port: " + serverPort + ")");
@@ -127,6 +148,26 @@ public abstract class ServerProcess {
      * Called when this server is promoted to primary.
      */
     protected abstract void onPromotedToPrimary();
+    
+    /**
+     * Replicates current state to all backup servers.
+     * Sends STATE_UPDATE message to all known backup ports.
+     */
+    private void replicateStateToBackups() {
+        // Known backup ports (all servers except this one)
+        int[] allPorts = {8090, 8089, 8088};
+        
+        for (int port : allPorts) {
+            if (port != this.serverPort) { // Don't send to self
+                try (Socket backupSocket = new Socket("localhost", port);
+                     PrintWriter out = new PrintWriter(backupSocket.getOutputStream(), true)) {
+                    out.println("STATE_UPDATE:" + messageCount);
+                } catch (IOException e) {
+                    // Backup might be down - this is fine, it will sync when promoted
+                }
+            }
+        }
+    }
 
     /**
      * Stops the server process gracefully.

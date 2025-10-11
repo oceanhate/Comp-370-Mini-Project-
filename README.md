@@ -1,81 +1,553 @@
-# Comp-370-Mini-Project-
-This is a Server redundancy project for comp 370 Group #6 [Fusion Five] 
+<!-- @format -->
 
-Link to google is on Whatsap groupchat for details. 
+# Comp-370-Mini-Project - Primary-Backup Server with Heartbeat Monitor
 
-I want to make this repo private, but I need everyone to have a github account first (so I can set up a collaboration). 
+**Group #6 [Fusion Five]** - COMP 370 Server Redundancy Project
 
-Thanks. 
-Add files via upload
-Updated IBKs working file. 
+## Table of Contents
 
-updates: 
-- Fixed shutoff
-- Implemented Backup 2
-- Implemented Promotion 
-- Updated Monitor, and Client to handle promotion
-- Implemented commands under main class for simulation (server instance shutoffs, reboot, to observe promotion) 
-- Order of operation: Start Monitor, Main, Client. [This is important, if you dont' start up in the correct order it will break].
-- Client detects disconnect when sending messages [if you guys want, try implementing monitor signals client to switch to available server, currently it is set up for the monitor to just inform and report, the client will switch once you try to send messages, and it doesn't receive a message back]
+- [Project Overview](#project-overview)
+- [System Architecture](#system-architecture)
+- [Quick Start](#quick-start)
+- [Port Configuration](#port-configuration)
+- [Component Details](#component-details)
+- [Testing Scripts](#testing-scripts)
+- [Test Scenarios](#test-scenarios)
+- [Requirements](#requirements)
+- [Troubleshooting](#troubleshooting)
 
+---
 
+## Project Overview
 
-Updates: 
+This project implements a **fault-tolerant primary-backup server system** with:
 
-1. Ports:
+- **1 Monitor**: Detects server failures via heartbeat mechanism
+- **3 Servers**: 1 Primary + 2 Backups with automatic failover
+- **Client Application**: Automatically discovers and connects to primary server
+- **Heartbeat Protocol**: Continuous health monitoring (2-second intervals)
+- **Automatic Promotion**: Backup servers promoted to primary on failure detection
+- **State Replication**: Message counter synchronized to all backups in real-time
 
-Server / Client Ports 
-PRIMARY_PORT = 8090;
-BACKUP_PORT = 8089;
-BACKUP_PORT2 = 8088;
+### State Replication Details
 
-Monitor / Server Port for Hearbeats
-HEARTBEAT_PORT = 9000
+The system maintains a **message counter** that tracks the total number of client messages processed:
 
-Monitor / Client Port for Promotion 
-CLIENT_API_PORT = 9001
+- **Primary Server**: Increments counter for each client message received
+- **Real-time Sync**: After each message, state is replicated to all backup servers
+- **Seamless Failover**: When backup is promoted, it continues with the same count
+- **No Data Loss**: Clients see consistent message counts across failovers
 
-2. Functions:
+**Example:**
 
-ServerProcess: 
-Sets Port instance 
-Sends heartbeat (continiously) with the port # and time stamp
-Accepts Client Message, and responds to notify message received
-Lets client know if it is not communicating with the current "primary" 
-Stop function (to end server instance) 
+```
+Primary receives 5 messages → Counter = 5 → Synced to backups
+Primary fails → Backup promoted → New primary continues at Counter = 5
+```
 
-[Primary, backup and backup2] 
-Extend the funciton above + add a promotion message 
+---
 
-Monitor: 
-Receives heartbeats [with all the metadata, ie port#, status, and time stamp] 
-Updates primary status and signals to Main if primary death is noticed, and also signals to client so that promotion can be aligned. 
-uses a funciton called rundeathchecker, that ensures proper promotion logic, and decides which server to set to primary (based on highest port #) 
+## System Architecture
 
-Client: 
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Monitor                              │
+│  Port 9000 (Heartbeat) | Port 9001 (Client API)            │
+│  - Receives heartbeats from all servers                     │
+│  - Detects failures (5-second timeout)                      │
+│  - Promotes backups to primary                              │
+│  - Informs clients of primary changes                       │
+└─────────────────────────────────────────────────────────────┘
+                    ↑              ↑              ↑
+                    │ Heartbeat    │ Heartbeat    │ Heartbeat
+                    │              │              │
+         ┌──────────┴─────┐  ┌────┴──────┐  ┌────┴──────┐
+         │  Server 1      │  │ Server 2  │  │ Server 3  │
+         │  Port 8090     │  │ Port 8089 │  │ Port 8088 │
+         │  (Primary)     │  │ (Backup)  │  │ (Backup)  │
+         └────────┬───────┘  └───────────┘  └───────────┘
+                  │
+                  │ Client Requests
+                  │
+         ┌────────┴────────┐
+         │     Client      │
+         │  Auto-discovery │
+         │  Auto-reconnect │
+         └─────────────────┘
+```
 
-Sends messages to primary server
+**Platform Compatibility:**
 
-Scripts:
-All the file paths are absolute paths and you have to change them before running the scripts according to your PC. 
-Script Files:
-Run.sh: to run the servers and monitor.
-kill_server1.sh: To kill server 1 or primary server.
-kill_server2.sh: To kill server 2 or backup server 1.
-kill_server3.sh: To kill server 3 or backup server 2.
-kill_server_all.sh: To kill all the servers running.
-simulate_chain_failure.sh: Kills server sequentially to simulate cascading failures.
-simulate_failure.sh: To simulate one or more server failures.
-simulate_random_failure.sh: To simulate failure of server on random.
+- **Core System**: Fully cross-platform (Java-based)
+- **Bash Scripts**: Cross-platform (work on Linux/macOS/WSL)
+- **Kill/Stop/Status Scripts**: Work on Linux/macOS (use `lsof` command)
+  - Windows users: Use WSL (Windows Subsystem for Linux)
+- **Auto-Launch Feature**: `run.sh` and `restart-server.sh` use `osascript` (macOS-only) to open new Terminal windows
+  - Linux alternative: Replace `osascript` with `gnome-terminal -e` or `xterm -e`
+  - Windows: Use WSL or launch manually in separate windows
+- **Manual Operation**: Works on all platforms - just run each component in separate terminals:
+  ```bash
+  java -cp src Monitor
+  java -cp src primary 8090
+  java -cp src backup 8089
+  java -cp src backup2 8088
+  java -cp src Client
+  ```
 
-To run the scripts in IntelliJ IDEA:- 
-Go to Terminal> Clik on arrow and select Git Bash.
-You will need two Git Bash running, in one you will run the project and in second, you will run other scripts.
+---
 
-Switchces ports upon receiving notificaion from monitor
+## Quick Start
 
+### Prerequisites
 
+- Java JDK 8 or higher
+- macOS (scripts use `osascript` for Terminal windows)
+- `lsof` utility (standard on macOS)
 
-Main: 
-Runs instances of Serverprocess: 
-Temporary interface for testing [bash to be implmented]
+### Step 1: Make Scripts Executable
+
+```bash
+cd SocketServer/scripts
+chmod +x *.sh
+```
+
+### Step 2: Start the System
+
+```bash
+./run.sh
+```
+
+This will:
+
+1. Compile all Java files
+2. Start Monitor in a new Terminal window
+3. Start 3 Server instances in separate Terminal windows
+4. Start Client in a new Terminal window
+
+### Step 3: Test the System
+
+```bash
+# Check system status
+./status.sh
+
+# Test primary crash scenario
+./kill-primary.sh
+
+# Test backup crash scenario
+./kill-backup.sh
+
+# Run all test scenarios interactively
+./test-all-scenarios.sh
+```
+
+### Step 4: Stop the System
+
+```bash
+./stop-all.sh
+```
+
+---
+
+## Port Configuration
+
+| Component    | Port | Purpose                          |
+| ------------ | ---- | -------------------------------- |
+| **Monitor**  | 9000 | Heartbeat reception from servers |
+| **Monitor**  | 9001 | Client API for primary discovery |
+| **Server 1** | 8090 | Primary server (initially)       |
+| **Server 2** | 8089 | Backup server 1                  |
+| **Server 3** | 8088 | Backup server 2                  |
+
+**Promotion Priority**: Servers are promoted in descending port order (8090 → 8089 → 8088)
+
+---
+
+## Component Details
+
+### Monitor (`Monitor.java`)
+
+- **Heartbeat Listener**: Receives heartbeats on port 9000
+- **Death Checker**: Runs every 2 seconds to detect server failures
+- **Timeout**: 5 seconds without heartbeat = server presumed dead
+- **Promotion Logic**: Promotes highest-port backup to primary on failure
+- **No Auto-Demotion**: When failed primary restarts, it rejoins as backup (current primary stays primary)
+- **Client API**: Port 9001 serves primary server information to clients
+
+**Key Functions:**
+
+- `handleHeartbeat()`: Processes incoming heartbeats with port# and timestamp
+- `runDeathChecker()`: Monitors server liveness and triggers promotion only when primary fails
+- `runClientApiListener()`: Responds to client requests for current primary
+
+### ServerProcess (`ServerProcess.java`)
+
+Abstract base class for all server instances.
+
+**Features:**
+
+- Sends heartbeats every 2 seconds (port# | timestamp format)
+- Accepts client connections and handles requests
+- Processes PROMOTE command from monitor
+- Multi-threaded: separate threads for server listen and heartbeat sending
+- **State Management**: Maintains message counter (`messageCount`)
+- **State Replication**: Primary replicates state to backups after each message
+
+**Key Methods:**
+
+- `process()`: Starts server and heartbeat threads
+- `sendHeartbeat()`: Sends heartbeat to monitor
+- `handleClient()`: Processes client requests and replicates state
+- `replicateStateToBackups()`: Sends state updates to all backup servers
+- `onPromotedToPrimary()`: Hook for promotion logic
+
+**State Protocol:**
+
+- Primary increments `messageCount` on each client message
+- Primary sends `STATE_UPDATE:<count>` to all backups
+- Backups update their local `messageCount` to stay synchronized
+- On promotion, backup already has current state
+
+### Server Classes
+
+- **`primary.java`**: Initially starts as primary server (port 8090)
+- **`backup.java`**: Backup server 1 (port 8089)
+- **`backup2.java`**: Backup server 2 (port 8088)
+
+All extend `ServerProcess` and can be promoted to primary.
+
+### Client (`Client.java`)
+
+**Features:**
+
+- **Strict Primary Connection**: Only connects to monitor's designated primary server
+- Auto-discovers primary server via Monitor API (port 9001)
+- Waits for monitor to promote new primary on failure (no fallback connections)
+- Interactive message sending interface
+
+**Behavior:**
+
+- Queries Monitor for current primary on startup and after disconnections
+- **Only connects to the server the monitor designates as primary**
+- Does NOT connect to backup servers
+- If primary is down, waits for monitor to detect failure and promote backup
+- Retries connection every 5 seconds until new primary is available
+- Ensures all messages go to the actual primary server
+
+---
+
+## Testing Scripts
+
+All scripts are located in `SocketServer/scripts/`. See `SocketServer/scripts/README.md` for detailed documentation.
+
+### Core Scripts (Required by Project)
+
+#### 1. `run.sh` - Start Complete System
+
+```bash
+./run.sh
+```
+
+Starts Monitor, 3 servers, and client in separate Terminal windows.
+
+#### 2. `kill-primary.sh` - Simulate Primary Crash
+
+```bash
+./kill-primary.sh
+```
+
+Kills the primary server process (port 8090) with timestamps.
+
+**Important Notes:**
+
+- All kill scripts use `-sTCP:LISTEN` flag to only kill server processes, not client connections. This ensures clients remain running and can reconnect after failover.
+- **By design**, `kill-primary.sh` always kills port 8090, and `kill-backup.sh` kills port 8089 by default. However, the **actual primary** may be running on a different port after failover (like if 8090 was killed and 8089 became primary). The script names refer to the static port numbers, not the dynamic primary role.
+
+#### 3. `delay-heartbeat.sh` - Simulate Network Delay
+
+```bash
+./delay-heartbeat.sh [seconds]
+```
+
+Creates flag file to trigger artificial delay in heartbeat processing.
+
+### Additional Testing Scripts
+
+#### 4. `kill-backup.sh` - Kill Backup Server
+
+```bash
+./kill-backup.sh [port]        # Default: 8089
+./kill-backup.sh 8088           # Kill specific backup
+```
+
+**Note:** Kills the server on the specified port (8089 by default). The actual role (primary/backup) depends on current system state.
+
+#### 5. `kill-primary-and-backup.sh` - Simultaneous Failures
+
+```bash
+./kill-primary-and-backup.sh [backup_port]
+```
+
+Kills primary (port 8090) and one backup simultaneously.
+
+**Note:** Targets static ports 8090 and specified backup port, regardless of which server is currently acting as primary.
+
+#### 6. `restart-server.sh` - Restart Crashed Server
+
+**Auto-detect mode (Recommended)** - Automatically restarts any down servers:
+
+```bash
+./restart-server.sh             # Auto-detect and restart down servers
+./restart-server.sh all         # Same as above
+```
+
+**Manual mode** - Restart specific server:
+
+```bash
+./restart-server.sh [port]
+./restart-server.sh 8090        # Restart primary
+./restart-server.sh 8089        # Restart backup on 8089
+./restart-server.sh 8088        # Restart backup on 8088
+```
+
+**Features:**
+
+- ✓ Auto-detects which servers are down (no arguments needed)
+- ✓ Opens each restarted server in a new Terminal window
+- ✓ Safe - won't restart servers that are already running
+- ✓ Smart - only restarts what's needed
+- ✓ **All restarted servers rejoin as backups** (even port 8090)
+- ✓ Monitor will only promote to primary if current primary fails
+
+**Important Behavior:**
+When a failed server is restarted, it **always rejoins as a backup server**, regardless of what port it's on. The monitor maintains the current primary and will only trigger a new promotion if that primary fails. This prevents unnecessary disruption to the system.
+
+## Test Scenarios
+
+### Scenario 1: Normal Operation
+
+**Steps:**
+
+1. Run `./run.sh`
+2. Verify heartbeats in Monitor window
+3. Verify primary server selected (port 8090)
+4. Send client requests
+5. Verify responses and state replication
+
+**Expected:**
+
+- ✓ Primary server handles all client requests
+- ✓ Backups receive state replication
+- ✓ Heartbeats sent every 2 seconds
+
+### Scenario 2: Primary Crash
+
+**Steps:**
+
+1. Run `./run.sh`
+2. Run `./kill-primary.sh`
+3. Record timestamps: kill time, detection time, failover time
+
+**Expected:**
+
+- ✓ Monitor detects failure within 5 seconds
+- ✓ Backup promoted to primary (port 8089 or 8088)
+- ✓ Clients automatically reconnect
+- ✓ No request loss after reconnection
+
+### Scenario 3: Backup Crash
+
+**Steps:**
+
+1. Run `./run.sh`
+2. Run `./kill-backup.sh 8089`
+3. Verify primary continues
+4. Run `./restart-server.sh 8089`
+5. Verify backup synchronizes state
+
+**Expected:**
+
+- ✓ Primary continues without disruption
+- ✓ Restarted backup rejoins cluster
+- ✓ State synchronized from primary
+
+### Scenario 4: Simultaneous Failures
+
+**Steps:**
+
+1. Run `./run.sh`
+2. Run `./kill-primary-and-backup.sh`
+3. Run `./status.sh` to check survivors
+
+**Expected:**
+
+- ✓ Remaining server promoted to primary
+- ✓ System continues if ≥1 server alive
+- ✓ Graceful degradation documented
+
+### Scenario 5: Network Delay Simulation
+
+### Scenario 6: Recovery
+
+**Steps:**
+
+1. Run `./stop-all.sh`
+2. Wait 5 seconds
+3. Run `./run.sh`
+4. Observe server rejoin and state sync
+
+**Expected:**
+
+- ✓ Servers reconnect to monitor
+- ✓ State synchronized correctly
+- ✓ Correct roles assigned
+- ✓ Normal operation resumes
+
+---
+
+## Requirements
+
+### Functional Requirements (FR)
+
+- ✓ FR1: Primary-backup server architecture
+- ✓ FR2: Heartbeat-based failure detection
+- ✓ FR3: Automatic backup promotion on primary failure
+- ✓ FR4: Client auto-discovery and reconnection
+- ✓ FR5: State replication to backup servers
+- ✓ FR6: Support for 3 server instances minimum
+
+### Non-Functional Requirements (NFR)
+
+- ✓ NFR1: Failure detection within 5 seconds
+- ✓ NFR2: Seamless failover with minimal downtime
+- ✓ NFR3: No data loss during failover
+- ✓ NFR4: System handles simultaneous failures gracefully
+- ✓ NFR5: Scripts for reproducible testing
+
+---
+
+## Troubleshooting
+
+### Port Already in Use
+
+```bash
+./stop-all.sh
+sleep 2
+./run.sh
+```
+
+### Scripts Won't Execute
+
+```bash
+chmod +x SocketServer/scripts/*.sh
+```
+
+### Compilation Errors
+
+```bash
+cd SocketServer/src
+javac *.java
+```
+
+### Check What's Running
+
+```bash
+./status.sh
+lsof -i :8090    # Check specific port
+```
+
+### Kill Specific Process
+
+```bash
+kill -9 $(lsof -ti :8090)
+```
+
+### Clean Restart
+
+```bash
+./stop-all.sh
+rm /tmp/heartbeat_delay.flag
+sleep 3
+./run.sh
+```
+
+---
+
+## Documentation
+
+- **Detailed Script Documentation**: See `SocketServer/scripts/README.md`
+- **Quick Reference**: See `SocketServer/scripts/QUICK_REFERENCE.md`
+- **Test Results**: Record timestamps and observations for each scenario
+
+### Recording Test Data
+
+For each test scenario, record:
+
+1. **Time of Event**: When the failure occurred
+   ```bash
+   date '+%Y-%m-%d %H:%M:%S.%3N'
+   ```
+2. **Detection Time**: How long until Monitor detected failure
+3. **Failover Time**: Time from detection to new primary accepting requests
+4. **State Consistency**: Any inconsistencies observed and how resolved
+
+---
+
+## Project Structure
+
+```
+Comp-370-Mini-Project-/
+├── README.md                          # This file
+├── SocketServer/
+│   ├── scripts/
+│   │   ├── run.sh                    # Start system
+│   │   ├── kill-primary.sh           # Kill primary server
+│   │   ├── kill-backup.sh            # Kill backup server
+│   │   ├── kill-primary-and-backup.sh# Simultaneous failures
+│   │   ├── delay-heartbeat.sh        # Simulate network delay
+│   │   ├── restart-server.sh         # Restart crashed server
+│   │   ├── stop-all.sh               # Stop all processes
+│   └── src/
+│       ├── Monitor.java              # Heartbeat monitor & failover controller
+│       ├── ServerProcess.java        # Abstract server base class
+│       ├── primary.java              # Primary server implementation
+│       ├── backup.java               # Backup server 1
+│       ├── backup2.java              # Backup server 2
+│       └── Client.java               # Client with auto-discovery
+└── [Other directories...]
+```
+
+## Team Information
+
+**Group #6 - Fusion Five**
+
+- COMP 370 - Server Redundancy Project
+- Implementation: Primary-Backup Server with Heartbeat Monitor
+
+---
+
+## Updates Log
+
+### Latest Updates
+
+- ✅ Implemented comprehensive bash testing scripts
+- ✅ Added automatic timestamp recording for all scenarios
+- ✅ Created interactive test scenario guide
+- ✅ Added system status monitoring
+- ✅ Implemented server restart capability
+- ✅ Added network delay simulation support
+- ✅ Complete documentation for all testing scenarios
+
+### Previous Updates
+
+- ✅ Fixed shutdown functionality
+- ✅ Implemented Backup Server 2
+- ✅ Implemented automatic promotion logic
+- ✅ Updated Monitor and Client for promotion handling
+- ✅ Added simulation commands in Main class
+- ✅ Client auto-detection of primary disconnection
+- ✅ Monitor signals client on primary changes
+
+---
+
+**Order of Operation**: Monitor → Servers → Client (Important for correct startup!)
+

@@ -3,19 +3,12 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 
 public class  Client {
     private static final String HOST = "localhost";
     private static final int MONITOR_API_PORT = 9001; // Monitor's API port
-
-    // Define all known server ports (for fallback)
-    private static final List<Integer> ALL_SERVER_PORTS = new ArrayList<>(Arrays.asList(8090, 8089, 8088));
     private static final int RECONNECT_INTERVAL = 5000; // 5 seconds
 
     /**
@@ -49,63 +42,41 @@ public class  Client {
     }
 
     public static void main(String[] args) {
-        // Ensure ALL_SERVER_PORTS is sorted descending (highest port first) for the fallback priority
-        ALL_SERVER_PORTS.sort(Comparator.reverseOrder());
-
         Scanner consoleInput = new Scanner(System.in);
 
         while (true) {
-            // 1. DETERMINE CONNECTION ORDER
-            List<Integer> attemptPorts = new ArrayList<>();
+            // 1. QUERY MONITOR FOR CURRENT PRIMARY
             int monitorReportedPrimary = getPrimaryPortFromMonitor();
 
-            if (monitorReportedPrimary > 0) {
-                // PRIORITIZE: Primary reported by Monitor goes first
-                attemptPorts.add(monitorReportedPrimary);
-            }
-
-            // FALLBACK: Add all other known ports in descending order
-            for (int port : ALL_SERVER_PORTS) {
-                if (port != monitorReportedPrimary) {
-                    attemptPorts.add(port);
-                }
-            }
-
-            // 2. START CONNECTION ATTEMPTS
-            boolean connected = false;
-
-            for (int port : attemptPorts) {
+            if (monitorReportedPrimary <= 0) {
+                // Monitor didn't return a valid primary - system may be down
+                System.out.println("Monitor did not return a valid primary. Retrying in " + RECONNECT_INTERVAL / 1000 + " seconds...");
                 try {
-                    System.out.println("Attempting connection to server on port: " + port);
-                    connectAndRun(consoleInput, port);
-                    connected = true;
-                    // If connectAndRun returns without an exception, it means the user typed 'exit' or the server died.
-                    // If the server died, the internal loop breaks and we try the next port (or the main loop retries).
+                    TimeUnit.MILLISECONDS.sleep(RECONNECT_INTERVAL);
+                    continue;
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
                     break;
-                } catch (IOException e) {
-                    System.out.println("Connection failed on port " + port + ". Trying next port...");
-                    try {
-                        TimeUnit.MILLISECONDS.sleep(500);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
                 }
             }
 
-            // 3. RETRY LOGIC
-            if (!connected) {
-                System.out.println("All known servers are down. Retrying all ports in " + RECONNECT_INTERVAL / 1000 + " seconds...");
+            // 2. CONNECT ONLY TO MONITOR'S DESIGNATED PRIMARY
+            // No fallback to other ports - we only connect to what monitor says is primary
+            try {
+                System.out.println("Attempting connection to primary server on port: " + monitorReportedPrimary);
+                connectAndRun(consoleInput, monitorReportedPrimary);
+                // If connectAndRun returns without an exception, it means the user typed 'exit' or the server died.
+                // Loop back to query monitor for new primary.
+            } catch (IOException e) {
+                System.out.println("Connection to primary on port " + monitorReportedPrimary + " failed.");
+                System.out.println("Waiting for monitor to detect failure and promote new primary...");
+                System.out.println("Retrying in " + RECONNECT_INTERVAL / 1000 + " seconds...");
                 try {
                     TimeUnit.MILLISECONDS.sleep(RECONNECT_INTERVAL);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
                 }
-            } else if (Thread.interrupted()) {
-                // If the main thread was interrupted during a successful connection, it means the server died.
-                // We clear the flag and continue the loop to attempt reconnect.
-                Thread.interrupted();
             }
         }
         consoleInput.close();

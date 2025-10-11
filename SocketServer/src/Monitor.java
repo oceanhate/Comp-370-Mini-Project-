@@ -156,13 +156,11 @@ public class Monitor {
                 Thread.sleep(CHECK_INTERVAL);
                 long now = System.currentTimeMillis();
 
-                if (alive.size() == ALL_SERVER_PORTS_DESC.size() && currentPrimaryPort != PRIMARY_PORT_DEFAULT) {
-                    // All servers are back online, and the current primary is NOT the highest port (8090).
-                    System.out.println("\n*** FULL HEALTH RESTORED. FORCING PRIMARY RESET TO HIGHEST PORT (" + PRIMARY_PORT_DEFAULT + ") ***");
-                    // Force a promotion attempt to the highest port
-                    currentPrimaryPort = 0; // Set to 0 to trigger the promotion logic below
-                }
-
+                // REMOVED AUTO-RESET LOGIC:
+                // Previously, when all servers came back online, the monitor would force
+                // a promotion back to port 8090. This caused unnecessary disruption.
+                // Now, restarted servers rejoin as backups, and the current primary stays primary.
+                
                 // Flag is true if the current primary port is detected as dead
                 boolean primaryFailed = false;
 
