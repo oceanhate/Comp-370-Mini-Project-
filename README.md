@@ -399,7 +399,7 @@ _Failover behavior when primary server is killed_
 ![Simultaneous Failures](photos/kill_primary_and_backup.png)
 _System behavior when primary and backup are killed simultaneously_
 
-### Scenario 6: Recovery
+### Scenario 5: Recovery
 
 **Steps:**
 
