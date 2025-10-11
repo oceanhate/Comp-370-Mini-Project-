@@ -79,12 +79,12 @@ Primary fails → Backup promoted → New primary continues at Counter = 5
 **Platform Compatibility:**
 
 - **Core System**: Fully cross-platform (Java-based)
-- **Bash Scripts**: Cross-platform (work on Linux/macOS/WSL)
+- **Bash Scripts**: The `run.sh` script automatically detects your OS and adapts:
+  - **macOS**: Uses `osascript` to open new Terminal windows ✅ Confirmed working
+  - **Linux**: Tries `gnome-terminal`, `xterm`, or `konsole` in order of preference
+  - **Windows**: Supports Git Bash/Cygwin with `cmd.exe`
 - **Kill/Stop/Status Scripts**: Work on Linux/macOS (use `lsof` command)
   - Windows users: Use WSL (Windows Subsystem for Linux)
-- **Auto-Launch Feature**: `run.sh` and `restart-server.sh` use `osascript` (macOS-only) to open new Terminal windows
-  - Linux alternative: Replace `osascript` with `gnome-terminal -e` or `xterm -e`
-  - Windows: Use WSL or launch manually in separate windows
 - **Manual Operation**: Works on all platforms - just run each component in separate terminals:
   ```bash
   java -cp src Monitor
@@ -101,8 +101,9 @@ Primary fails → Backup promoted → New primary continues at Counter = 5
 ### Prerequisites
 
 - Java JDK 8 or higher
-- macOS (scripts use `osascript` for Terminal windows)
-- `lsof` utility (standard on macOS)
+- **macOS/Linux**: Bash shell (default on both)
+- **Windows**: Git Bash or WSL recommended for script execution
+- `lsof` utility (standard on macOS/Linux) for status and kill scripts
 
 ### Step 1: Make Scripts Executable
 
@@ -248,6 +249,13 @@ All scripts are located in `SocketServer/scripts/`. See `SocketServer/scripts/RE
 ```
 
 Starts Monitor, 3 servers, and client in separate Terminal windows.
+
+**OS-Specific Behavior:**
+
+- **macOS**: Opens new Terminal.app windows using AppleScript
+- **Linux**: Tries gnome-terminal → xterm → konsole in order
+- **Windows (Git Bash/Cygwin)**: Uses cmd.exe to launch bash terminals
+- **Auto-detected**: Script automatically detects your OS and uses appropriate commands
 
 #### 2. `kill-primary.sh` - Simulate Primary Crash
 
@@ -550,4 +558,3 @@ Comp-370-Mini-Project-/
 ---
 
 **Order of Operation**: Monitor → Servers → Client (Important for correct startup!)
-
